@@ -1,0 +1,136 @@
+on:
+  workflow_call:
+    inputs:
+      docker-image:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
+      github-sha:
+        required: true
+        type: string
+      build-number:
+        required: true
+        type: string
+      app-name:
+        required: true
+        type: string
+
+    secrets:
+      registry-username:
+        required: true
+      registry-password:
+        required: true
+      k3s-dac-deploy-key:
+        required: true
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_IMAGE: ${{ inputs.docker-image }}
+      BUILD_CACHE: /home/runner/.docker/buildkit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Compute cache key
+        run: echo "CACHE_KEY=$(git ls-files -s dir1 dir2 | git hash-object --stdin)" >> $GITHUB_ENV
+
+      - name: Cache docker layers
+        id: dockercache
+        uses: actions/cache@v3
+        with:
+           path: ${{ env.BUILD_CACHE }}
+           key: cache-${{ env.CACHE_KEY }}
+           restore-keys: |
+             cache-
+
+      - name: Prepare
+        id: prep
+        run: |
+          TAG=$(echo ${{ inputs.github-sha }} | head -c7)
+          BUILDNUM=${{ inputs.build-number }}
+          IMAGE="${{ inputs.registry }}/${{ inputs.app-name }}"
+          echo "tagged_image=${IMAGE}:${BUILDNUM}-${TAG},${IMAGE}:latest" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Login to private registry
+        uses: docker/login-action@v2
+        with:
+          registry: "${{ env.REGISTRY }}"
+          username: ${{ secrets.registry-username }}
+          password: ${{ secrets.registry-password }}
+
+      - name: Cache buildkitd
+        uses: actions/cache@v3
+        id: buildkitd-cache
+        with:
+          path: /usr/local/buildkitd
+          key: buildkitd
+          restore-keys: |
+            buildkitd
+
+      - name: Install the latest buildkit release
+        run: |
+          BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
+            | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -L "${BUILDKIT_URL}" | sudo tar -xz -C /usr/local
+
+      - name: Start buildkit daemon
+        run: |
+          sudo --non-interactive --shell <<END_SUDO
+            install -d -m 0750 -o root -g docker /run/buildkit
+            buildkitd &
+            while ! test -S /run/buildkit/buildkitd.sock; do sleep 0.1; done
+            chgrp docker /run/buildkit/buildkitd.sock
+          END_SUDO
+
+      - name: Build docker image
+        run: |
+          buildctl build ... \
+            --frontend=dockerfile.v0 --local dockerfile=. --local context=. \
+            --export-cache type=local,dest=${BUILD_CACHE},mode=max \
+            --import-cache type=local,src=${BUILD_CACHE} \
+            --output type=image,\"name=${{ steps.prep.outputs.tagged_image }}\",push=true 
+          echo "Cache size: $(du -sh ${BUILD_CACHE})"
+
+      - name: Cache kustomize
+        uses: actions/cache@v3
+        id: kustomize-cache
+        with:
+          path: kustomize
+          key: kustomize
+          restore-keys: |
+            kustomize
+            
+      - name: Install kustomize
+        run: |
+          if [[ ! -f kustomize ]]
+          then
+              curl  -X GET -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+              chmod +x kustomize
+          fi
+
+      - name: Run kustomize and push to GitOps environment repo
+        run: |
+          (cd .k8s/overlays/prod && kustomize edit set image ${{ inputs.registry }}/${{ inputs.app-name }}=${{ steps.prep.outputs.argo_image_with_tag }})
+          mkdir -p apps/${{ inputs.app-name }}/appmanifests
+          kustomize build .k8s/overlays/prod > apps/${{ inputs.app-name }}/appmanifests/all.yaml
+
+      - name: Push to GitOps environment repo
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          SSH_DEPLOY_KEY: ${{ secrets.k3s-dac-deploy-key }}
+        with:
+          source-directory: "apps/${{ inputs.app-name }}/appmanifests"
+          target-directory: "apps/${{ inputs.app-name }}/appmanifests"
+          destination-github-username: 'alexandervantrijffel'
+          destination-repository-name: 'k3s-dac-deploy'
+          user-name: "Mr. CI"
+          user-email: mrci@users.noreply.github.com
+          commit-message: "${{ inputs.app-name }} ${{ inputs.build-number }}-${{ steps.prep.outputs.tag }}"
+          target-branch: main
