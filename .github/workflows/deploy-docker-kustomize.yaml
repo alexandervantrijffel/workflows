@@ -36,6 +36,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Login to private registry
+        uses: docker/login-action@v2
+        with:
+          registry: "${{ inputs.registry }}"
+          username: ${{ secrets.registry-username }}
+          password: ${{ secrets.registry-password }}
+
+      - name: Prepare image tag
+        id: prep
+        run: |
+          TAG=$(echo ${{ inputs.github-sha }} | head -c7)
+          BUILDNUM=${{ inputs.build-number }}
+          IMAGE="${{ inputs.registry }}/${{ inputs.app-name }}"
+          echo TAG $TAG BUILDNUM ${BUILDNUM} IMAGE ${IMAGE}
+          echo "tagged_image=${IMAGE}:${BUILDNUM}-${TAG},${IMAGE}:latest" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${TAG}" >> $GITHUB_OUTPUT
       - name: Compute cache key
         run: echo "CACHE_KEY=$(git ls-files -s dir1 dir2 | git hash-object --stdin)" >> $GITHUB_ENV
 
@@ -47,24 +64,6 @@ jobs:
            key: cache-${{ env.CACHE_KEY }}
            restore-keys: |
              cache-
-
-      - name: Prepare
-        id: prep
-        run: |
-          TAG=$(echo ${{ inputs.github-sha }} | head -c7)
-          BUILDNUM=${{ inputs.build-number }}
-          IMAGE="${{ inputs.registry }}/${{ inputs.app-name }}"
-          echo TAG $TAG BUILDNUM ${BUILDNUM} IMAGE ${IMAGE}
-          echo "tagged_image=${IMAGE}:${BUILDNUM}-${TAG},${IMAGE}:latest" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${TAG}" >> $GITHUB_OUTPUT
-
-      - name: Login to private registry
-        uses: docker/login-action@v2
-        with:
-          registry: "${{ inputs.registry }}"
-          username: ${{ secrets.registry-username }}
-          password: ${{ secrets.registry-password }}
 
       - name: Cache buildkitd
         uses: actions/cache@v3
