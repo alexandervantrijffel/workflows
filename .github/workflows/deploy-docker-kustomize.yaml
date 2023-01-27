@@ -46,13 +46,14 @@ jobs:
       - name: Prepare image tag
         id: prep
         run: |
-          TAG=$(echo ${{ inputs.github-sha }} | head -c7)
+          SHA=$(echo ${{ inputs.github-sha }} | head -c7)
           BUILDNUM=${{ inputs.build-number }}
           IMAGE="${{ inputs.registry }}/${{ inputs.app-name }}"
-          echo TAG $TAG BUILDNUM ${BUILDNUM} IMAGE ${IMAGE}
+          echo IMAGE ${IMAGE} BUILDNUM ${BUILDNUM} SHA $SHA 
           echo "tagged_image=${IMAGE}:${BUILDNUM}-${TAG},${IMAGE}:latest" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${TAG}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> $GITHUB_OUTPUT
+
       - name: Compute cache key
         run: echo "CACHE_KEY=$(git ls-files -s dir1 dir2 | git hash-object --stdin)" >> $GITHUB_ENV
 
@@ -132,5 +133,5 @@ jobs:
           destination-repository-name: 'k3s-dac-deploy'
           user-name: "Mr. CI"
           user-email: mrci@users.noreply.github.com
-          commit-message: "${{ inputs.app-name }} ${{ inputs.build-number }}-${{ steps.prep.outputs.tag }}"
+          commit-message: "${{ inputs.app-name }} ${{ inputs.build-number }}-${{ steps.prep.outputs.sha }}"
           target-branch: main
