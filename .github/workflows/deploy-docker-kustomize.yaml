@@ -46,11 +46,11 @@ jobs:
       - name: Prepare image tag
         id: prep
         run: |
-          SHA=$(echo ${{ inputs.github-sha }} | head -c7)
+          SHA=$(echo ${{ inputs.github-sha }} | head -c8)
           BUILDNUM=${{ inputs.build-number }}
           IMAGE="${{ inputs.registry }}/${{ inputs.app-name }}"
           echo IMAGE ${IMAGE} BUILDNUM ${BUILDNUM} SHA $SHA 
-          echo "tagged_image=${IMAGE}:${BUILDNUM}-${TAG},${IMAGE}:latest" >> $GITHUB_OUTPUT
+          echo "tagged_image=${IMAGE}:${BUILDNUM}-${SHA},${IMAGE}:latest" >> $GITHUB_OUTPUT
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> $GITHUB_OUTPUT
 
