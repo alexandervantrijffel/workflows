@@ -77,7 +77,8 @@ jobs:
           restore-keys: |
             buildkitd
 
-      - name: Install the latest buildkit release
+      - if: ${{ steps.buildkitd-cache.outputs.cache-hit != 'true' }}
+        name: Install the latest buildkit release
         run: |
           BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
             | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
@@ -110,7 +111,8 @@ jobs:
           restore-keys: |
             kustomize
             
-      - name: Install kustomize
+      - if: ${{ steps.kustomize-cache.outputs.cache-hit != 'true' }}
+        name: Install kustomize
         run: |
           if [[ ! -f kustomize ]]
           then
