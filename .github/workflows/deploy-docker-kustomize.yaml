@@ -24,6 +24,8 @@ on:
         required: true
       k3s-dac-deploy-key:
         required: true
+      gh-pat-token:
+        required: true
 
 
 jobs:
@@ -112,7 +114,7 @@ jobs:
         run: |
           if [[ ! -f kustomize ]]
           then
-              curl  -X GET -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+              curl  -X GET -H "Authorization: token ${{ secrets.gh-pat-token }}" "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
               chmod +x kustomize
           fi
 
