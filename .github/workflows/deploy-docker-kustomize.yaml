@@ -72,10 +72,10 @@ jobs:
         uses: actions/cache@v3
         id: buildkitd-cache
         with:
-          path: /usr/local/buildkitd
-          key: buildkitd
+          path: /usr/local/bin/buildkitd
+          key: buildkitd-
           restore-keys: |
-            buildkitd
+            buildkitd-
 
       - if: ${{ steps.buildkitd-cache.outputs.cache-hit != 'true' }}
         name: Install the latest buildkit release
@@ -83,6 +83,7 @@ jobs:
           BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
             | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
           curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -L "${BUILDKIT_URL}" | sudo tar -xz -C /usr/local
+          echo buildkit files
 
       - name: Start buildkit daemon
         run: |
@@ -106,25 +107,26 @@ jobs:
         uses: actions/cache@v3
         id: kustomize-cache
         with:
-          path: kustomize
-          key: kustomize
+          path: /usr/local/bin/kustomize
+          key: kustomize-
           restore-keys: |
-            kustomize
+            kustomize-
             
       - if: ${{ steps.kustomize-cache.outputs.cache-hit != 'true' }}
         name: Install kustomize
         run: |
-          if [[ ! -f kustomize ]]
+          if [[ ! -f  /usr/local/bin/kustomize ]]
           then
               curl  -X GET -H "Authorization: token ${{ secrets.gh-pat-token }}" "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
               chmod +x kustomize
+              mv kustomize /usr/local/bin/kustomize
           fi
 
       - name: Run kustomize and push to GitOps environment repo
         run: |
-          (cd .k8s/overlays/prod && kustomize edit set image ${{ inputs.registry }}/${{ inputs.app-name }}=${{ steps.prep.outputs.argo_image_with_tag }})
+          (cd .k8s/overlays/prod && /usr/local/bin/kustomize edit set image ${{ inputs.registry }}/${{ inputs.app-name }}=${{ steps.prep.outputs.argo_image_with_tag }})
           mkdir -p apps/${{ inputs.app-name }}/appmanifests
-          kustomize build .k8s/overlays/prod > apps/${{ inputs.app-name }}/appmanifests/all.yaml
+          /usr/local/bin/kustomize build .k8s/overlays/prod > apps/${{ inputs.app-name }}/appmanifests/all.yaml
 
       - name: Push to GitOps environment repo
         uses: cpina/github-action-push-to-another-repository@main
