@@ -3,8 +3,9 @@
   "ignoreDeps": ["renovate"],
   "prCreation": "immediate",
   "labels": ["ready-to-merge"],
+  "packageRules": [
     {
       "updateTypes": ["minor", "major"]
-    },
+    }
   ]
 }
