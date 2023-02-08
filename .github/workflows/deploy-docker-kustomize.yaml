@@ -70,7 +70,7 @@ jobs:
 
       - name: Cache buildkitd
         uses: actions/cache@v3
-        id: buildkitd-cache
+        id: buildkit-cache
         with:
           path: |
             /usr/local/bin/buildctl
@@ -79,7 +79,7 @@ jobs:
           restore-keys: |
             buildkit-
 
-      - if: ${{ steps.buildkitd-cache.outputs.cache-hit != 'true' }}
+      - if: ${{ steps.buildkit-cache.outputs.cache-hit != 'true' }}
         name: Install the latest buildkit release
         run: |
           BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
