@@ -73,20 +73,18 @@ jobs:
         id: buildkitd-cache
         with:
           path: |
+            /usr/local/bin/buildctl
             /usr/local/bin/buildkitd
-          key: buildkitd-
+          key: buildkit-
           restore-keys: |
-            buildkitd-
+            buildkit-
 
-      # if: ${{ steps.buildkitd-cache.outputs.cache-hit != 'true' }}
-      - name: Install the latest buildkit release
+      - if: ${{ steps.buildkitd-cache.outputs.cache-hit != 'true' }}
+        name: Install the latest buildkit release
         run: |
           BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
             | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
           curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -L "${BUILDKIT_URL}" | sudo tar -xz -C /usr/local
-          echo buildctl
-          which buildctl
-          echo buildkitd
 
       - name: Start buildkit daemon
         run: |
