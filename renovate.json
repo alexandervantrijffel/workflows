@@ -1,0 +1,10 @@
+{
+  "extends": ["github>alexandervantrijffel/presets"],
+  "ignoreDeps": ["renovate"],
+  "prCreation": "immediate",
+  "labels": ["ready-to-merge"],
+    {
+      "updateTypes": ["minor", "major"]
+    },
+  ]
+}
