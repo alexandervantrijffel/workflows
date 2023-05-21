@@ -27,7 +27,6 @@ on:
       gh-pat-token:
         required: true
 
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -35,6 +34,28 @@ jobs:
       DOCKER_IMAGE: ${{ inputs.docker-image }}
       BUILD_CACHE: /home/runner/.docker/buildkit
     steps:
+      - name: Check for Value availability
+        # perform secret check & put boolean result as an output
+        shell: bash
+        run: |
+          if [ "${{ inputs.registry }}" != '' ]; then
+            echo registry is available
+          else
+            echo is not available
+          fi
+
+          if [ "${{ secrets.registry-username }}" != '' ]; then
+            echo username is available
+          else
+            echo is not available
+          fi
+
+          if [ "${{ secrets.registry-password }}" != '' ]; then
+            echo password is available
+          else
+            echo is not available
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -63,10 +84,10 @@ jobs:
         id: dockercache
         uses: actions/cache@v3
         with:
-           path: ${{ env.BUILD_CACHE }}
-           key: cache-${{ env.CACHE_KEY }}
-           restore-keys: |
-             cache-
+          path: ${{ env.BUILD_CACHE }}
+          key: cache-${{ env.CACHE_KEY }}
+          restore-keys: |
+            cache-
 
       - name: Cache buildkitd
         uses: actions/cache@v3
@@ -112,7 +133,7 @@ jobs:
           key: kustomize-
           restore-keys: |
             kustomize-
-            
+
       - if: ${{ steps.kustomize-cache.outputs.cache-hit != 'true' }}
         name: Install kustomize
         run: |
@@ -136,8 +157,8 @@ jobs:
         with:
           source-directory: "apps/${{ inputs.app-name }}/appmanifests"
           target-directory: "apps/${{ inputs.app-name }}/appmanifests"
-          destination-github-username: 'alexandervantrijffel'
-          destination-repository-name: 'k3s-dac-deploy'
+          destination-github-username: "alexandervantrijffel"
+          destination-repository-name: "k3s-dac-deploy"
           user-name: "Mr. CI"
           user-email: mrci@users.noreply.github.com
           commit-message: "${{ inputs.app-name }} ${{ inputs.build-number }}-${{ steps.prep.outputs.sha }}"
