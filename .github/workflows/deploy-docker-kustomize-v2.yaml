@@ -123,7 +123,7 @@ jobs:
 
       - name: Run kustomize and push to GitOps environment repo
         run: |
-          (cd .k8s/overlays/prod && /usr/local/bin/kustomize edit set image ${{ inputs.registry }}/${{ inputs.app-name }}=${{ steps.prep.outputs.argo_image_with_tag }})
+          (cd .k8s/overlays/prod && /usr/local/bin/kustomize edit set image ${{ secrets.registry }}/${{ inputs.app-name }}=${{ steps.prep.outputs.argo_image_with_tag }})
           mkdir -p apps/${{ inputs.app-name }}/appmanifests
           /usr/local/bin/kustomize build .k8s/overlays/prod > apps/${{ inputs.app-name }}/appmanifests/all.yaml
 
