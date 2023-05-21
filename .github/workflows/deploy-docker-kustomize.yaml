@@ -34,28 +34,6 @@ jobs:
       DOCKER_IMAGE: ${{ inputs.docker-image }}
       BUILD_CACHE: /home/runner/.docker/buildkit
     steps:
-      - name: Check for Value availability
-        # perform secret check & put boolean result as an output
-        shell: bash
-        run: |
-          if [ "${{ inputs.registry }}" != '' ]; then
-            echo registry is available
-          else
-            echo is not available
-          fi
-
-          if [ "${{ secrets.registry-username }}" != '' ]; then
-            echo username is available
-          else
-            echo is not available
-          fi
-
-          if [ "${{ secrets.registry-password }}" != '' ]; then
-            echo password is available
-          else
-            echo is not available
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v3
 
