@@ -48,14 +48,13 @@ jobs:
         run: |
           SHA=$(echo ${{ inputs.github-sha }} | head -c8)
           BUILDNUM=${{ inputs.build-number }}
-          IMAGE="${{ secrets.registry }}/${{ inputs.app-name }}"
-          echo IMAGE ${IMAGE} BUILDNUM ${BUILDNUM} SHA $SHA 
-          echo "tagged_image=${IMAGE}:${BUILDNUM}-${SHA},${IMAGE}:latest" >> $GITHUB_OUTPUT
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> $GITHUB_OUTPUT
+          IMAGE=${{ secrets.registry }}/${{ inputs.app-name }}
+          echo "IMAGE ${IMAGE} BUILDNUM ${BUILDNUM} SHA $SHA"
+          (echo "tagged_image=${IMAGE}:${BUILDNUM}-${SHA},${IMAGE}:latest"; echo "sha=${SHA}") >> "$GITHUB_OUTPUT"
+          echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Compute cache key
-        run: echo "CACHE_KEY=$(git ls-files -s dir1 dir2 | git hash-object --stdin)" >> $GITHUB_ENV
+        run: echo "CACHE_KEY=$(git ls-files | git hash-object --stdin)" >> "$GITHUB_ENV"
 
       - name: Cache docker layers
         id: dockercache
@@ -97,9 +96,9 @@ jobs:
         run: |
           buildctl build ... \
             --frontend=dockerfile.v0 --local dockerfile=. --local context=. \
-            --export-cache type=local,dest=${BUILD_CACHE},mode=max \
-            --import-cache type=local,src=${BUILD_CACHE} \
-            --output type=image,\"name=${{ steps.prep.outputs.tagged_image }}\",push=true 
+            --export-cache "type=local,dest=${BUILD_CACHE},mode=max" \
+            --import-cache "type=local,src=${BUILD_CACHE}" \
+            --output type=image,\"name=${{ steps.prep.outputs.tagged_image }}\",push=true
           echo "Cache size: $(du -sh ${BUILD_CACHE})"
 
       - name: Cache kustomize
