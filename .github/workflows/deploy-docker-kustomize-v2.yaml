@@ -34,7 +34,7 @@ jobs:
       BUILD_CACHE: /home/runner/.docker/buildkit
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to private registry
         uses: docker/login-action@v3
