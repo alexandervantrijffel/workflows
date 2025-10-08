@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_IMAGE: ${{ inputs.docker-image }}
-      BUILD_CACHE: /home/runner/.docker/buildkit
+      BUILD_CACHE: /tmp/buildkit-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,8 +64,8 @@ jobs:
         run: echo "CACHE_KEY=$(git ls-files | git hash-object --stdin)" >> "$GITHUB_ENV"
 
       - name: Cache docker layers
-        id: dockercache
         uses: actions/cache@v3
+        id: dockercache
         with:
           path: ${{ env.BUILD_CACHE }}
           key: cache-${{ env.CACHE_KEY }}
