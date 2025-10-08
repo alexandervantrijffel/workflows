@@ -43,6 +43,7 @@ jobs:
           username: ${{ secrets.registry-username }}
           password: ${{ secrets.registry-password }}
 
+      # github's ubuntu-latest have a lot of bloat pre-installed and we need the space for some projects
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
