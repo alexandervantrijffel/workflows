@@ -104,8 +104,13 @@ jobs:
             --frontend=dockerfile.v0 --local dockerfile=. --local context=. \
             --export-cache "type=local,dest=${BUILD_CACHE},mode=max" \
             --import-cache "type=local,src=${BUILD_CACHE}" \
-            --output type=image,\"name=${{ steps.prep.outputs.tagged_image }}\",push=true
+            --output type=docker,name=${{ steps.prep.outputs.tagged_image }}
           echo "Cache size: $(du -sh ${BUILD_CACHE})"
+
+      - name: Push image
+        run: |
+          docker push ${{ secrets.registry }}/${{ inputs.app-name }}:${{ steps.prep.outputs.sha }}
+          docker push ${{ secrets.registry }}/${{ inputs.app-name }}:latest
 
       - name: Cache kustomize
         uses: actions/cache@v3
