@@ -110,7 +110,7 @@ jobs:
             --frontend=dockerfile.v0 --local dockerfile=. --local context=. \
             --export-cache "type=local,dest=${BUILD_CACHE},mode=max" \
             --import-cache "type=local,src=${BUILD_CACHE}" \
-            --output type=docker,name=${{ steps.prep.outputs.tagged_image }}
+            --output type=docker,name=${{ steps.prep.outputs.tagged_image }} | docker load
           echo "Cache size: $(du -sh ${BUILD_CACHE})"
 
       - name: Push image
