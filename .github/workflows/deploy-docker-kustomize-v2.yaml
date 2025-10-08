@@ -52,11 +52,17 @@ jobs:
       - name: Prepare image tag
         id: prep
         run: |
-          SHA=$(echo ${{ inputs.github-sha }} | head -c8)
+          SHA=$(echo "${{ inputs.github-sha }}" | head -c8)
           BUILDNUM=${{ inputs.build-number }}
           IMAGE=${{ secrets.registry }}/${{ inputs.app-name }}
-          echo "IMAGE ${IMAGE} BUILDNUM ${BUILDNUM} SHA $SHA"
-          (echo "tagged_image=${IMAGE}:${BUILDNUM}-${SHA},${IMAGE}:latest"; echo "sha=${SHA}") >> "$GITHUB_OUTPUT"
+          echo "IMAGE=${IMAGE} BUILDNUM=${BUILDNUM} SHA=${SHA}"
+
+          {
+            echo "tagged_image=${IMAGE}:${BUILDNUM}-${SHA}"
+            echo "latest_image=${IMAGE}:latest"
+            echo "sha=${SHA}"
+          } >> "$GITHUB_OUTPUT"
+
           echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Compute cache key
@@ -109,6 +115,7 @@ jobs:
 
       - name: Push image
         run: |
+          docker tag ${{ steps.prep.outputs.tagged_image }} ${{ steps.prep.outputs.latest_image }}
           docker push ${{ secrets.registry }}/${{ inputs.app-name }}:${{ steps.prep.outputs.sha }}
           docker push ${{ secrets.registry }}/${{ inputs.app-name }}:latest
 
