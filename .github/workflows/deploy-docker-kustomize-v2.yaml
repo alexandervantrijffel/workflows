@@ -66,10 +66,10 @@ jobs:
           echo "argo_image_with_tag=${IMAGE}:${BUILDNUM}-${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Compute cache key
-        run: echo "CACHE_KEY=$(git ls-files | git hash-object --stdin)" >> "$GITHUB_ENV"
+        run: echo "CACHE_KEY=${{ hashFiles('**/*') }}" >> "$GITHUB_ENV"
 
       - name: Cache docker layers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: dockercache
         with:
           path: ${{ env.BUILD_CACHE }}
@@ -106,18 +106,28 @@ jobs:
 
       - name: Build docker image
         run: |
+          set -euo pipefail
+
           buildctl build ... \
             --frontend=dockerfile.v0 --local dockerfile=. --local context=. \
             --export-cache "type=local,dest=${BUILD_CACHE},mode=max" \
             --import-cache "type=local,src=${BUILD_CACHE}" \
             --output type=docker,name=${{ steps.prep.outputs.tagged_image }} | docker load
+
+          # Verify image was loaded successfully
+          if ! docker image inspect ${{ steps.prep.outputs.tagged_image }} >/dev/null 2>&1; then
+            echo "ERROR: Image ${{ steps.prep.outputs.tagged_image }} not found after build"
+            exit 1
+          fi
+
+          echo "✓ Image loaded successfully"
           echo "Cache size: $(du -sh ${BUILD_CACHE})"
 
       - name: Push image
         run: |
           docker tag ${{ steps.prep.outputs.tagged_image }} ${{ steps.prep.outputs.latest_image }}
-          docker push ${{ secrets.registry }}/${{ inputs.app-name }}:${{ steps.prep.outputs.sha }}
-          docker push ${{ secrets.registry }}/${{ inputs.app-name }}:latest
+          docker push ${{ steps.prep.outputs.tagged_image }}
+          docker push ${{ steps.prep.outputs.latest_image }}
 
       - name: Cache kustomize
         uses: actions/cache@v3
