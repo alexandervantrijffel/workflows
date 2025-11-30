@@ -1,0 +1,50 @@
+name: Pushover Notification
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        description: 'Message content'
+        required: true
+        type: string
+      title:
+        description: 'Message title'
+        required: false
+        type: string
+        default: 'GitHub Actions Notification'
+      url:
+        description: 'Supplementary URL'
+        required: false
+        type: string
+      url_title:
+        description: 'Title for the supplementary URL'
+        required: false
+        type: string
+      priority:
+        description: 'Message priority (-2 to 2)'
+        required: false
+        type: string
+        default: '0'
+    secrets:
+      pushover-token:
+        description: 'Pushover API token/key'
+        required: true
+      pushover-user:
+        description: 'Pushover user key'
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Pushover notification
+        run: |
+          curl -s \
+            --form-string "token=${{ secrets.pushover-token }}" \
+            --form-string "user=${{ secrets.pushover-user }}" \
+            --form-string "message=${{ inputs.message }}" \
+            --form-string "title=${{ inputs.title }}" \
+            ${{ inputs.url && format('--form-string "url={0}"', inputs.url) || '' }} \
+            ${{ inputs.url_title && format('--form-string "url_title={0}"', inputs.url_title) || '' }} \
+            --form-string "priority=${{ inputs.priority }}" \
+            https://api.pushover.net/1/messages.json
