@@ -37,14 +37,78 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
+      # Everything reaches the script through env, nothing through ${{ }}
+      # interpolation into the script body. A message containing a quote, a
+      # backtick or $(...) would otherwise be pasted into the shell and either
+      # break the command or run as part of it, and a secret interpolated that
+      # way is a secret in the process's argv.
       - name: Send Pushover notification
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.pushover-token }}
+          PUSHOVER_USER: ${{ secrets.pushover-user }}
+          PUSHOVER_MESSAGE: ${{ inputs.message }}
+          PUSHOVER_TITLE: ${{ inputs.title }}
+          PUSHOVER_URL: ${{ inputs.url }}
+          PUSHOVER_URL_TITLE: ${{ inputs.url_title }}
+          PUSHOVER_PRIORITY: ${{ inputs.priority }}
         run: |
-          curl -s \
-            --form-string "token=${{ secrets.pushover-token }}" \
-            --form-string "user=${{ secrets.pushover-user }}" \
-            --form-string "message=${{ inputs.message }}" \
-            --form-string "title=${{ inputs.title }}" \
-            ${{ inputs.url && format('--form-string "url={0}"', inputs.url) || '' }} \
-            ${{ inputs.url_title && format('--form-string "url_title={0}"', inputs.url_title) || '' }} \
-            --form-string "priority=${{ inputs.priority }}" \
-            https://api.pushover.net/1/messages.json
+          set -euo pipefail
+
+          # An empty credential is the failure this notifier is least able to
+          # afford, and the one it used to hide: a caller whose secret does not
+          # resolve (a repository secret that was set at organisation scope, on
+          # a plan where organisation secrets do not reach private
+          # repositories, say) sends an empty token, Pushover answers 400, and
+          # nothing is delivered. Name it here rather than let it read as an
+          # API error.
+          missing=""
+          [ -n "${PUSHOVER_TOKEN}" ] || missing="pushover-token"
+          [ -n "${PUSHOVER_USER}" ] || missing="${missing:+${missing} and }pushover-user"
+          if [ -n "${missing}" ]; then
+            echo "::error::${missing} resolved to an empty value, so no notification was sent. The calling workflow passed a secret that does not exist in the context it runs in." >&2
+            exit 1
+          fi
+
+          args=(
+            --form-string "token=${PUSHOVER_TOKEN}"
+            --form-string "user=${PUSHOVER_USER}"
+            --form-string "message=${PUSHOVER_MESSAGE}"
+            --form-string "title=${PUSHOVER_TITLE}"
+            --form-string "priority=${PUSHOVER_PRIORITY}"
+          )
+          # `if`, not `[ … ] && …`: under `set -e` a failing test as the last
+          # command of the line would exit the step, so an absent optional
+          # input would abort instead of being skipped.
+          if [ -n "${PUSHOVER_URL}" ]; then
+            args+=(--form-string "url=${PUSHOVER_URL}")
+          fi
+          if [ -n "${PUSHOVER_URL_TITLE}" ]; then
+            args+=(--form-string "url_title=${PUSHOVER_URL_TITLE}")
+          fi
+
+          # Both halves are checked, because either can say "not delivered"
+          # on its own. The old `curl -s` checked neither, so this step went
+          # green on a 400 and the caller believed it had been notified.
+          body_file="$(mktemp)"
+          # `|| true` so a transport failure reaches the check below with an
+          # empty status and is reported there, instead of `set -e` killing the
+          # step with only curl's own stderr to go on.
+          http_status="$(
+            curl -sS -o "${body_file}" -w '%{http_code}' \
+              --retry 3 --retry-connrefused --max-time 30 \
+              "${args[@]}" \
+              https://api.pushover.net/1/messages.json || true
+          )"
+          body="$(cat "${body_file}")"
+          rm -f "${body_file}"
+
+          # Pushover answers {"status":1,...} on success and {"status":0,
+          # "errors":[...]} otherwise. The body is echoed because its `errors`
+          # array is the only thing that says WHICH field was rejected, and it
+          # carries no credential.
+          if [ "${http_status}" != "200" ] || ! printf '%s' "${body}" | grep -q '"status":[[:space:]]*1'; then
+            echo "::error::Pushover rejected the notification (HTTP ${http_status}). Response: ${body}" >&2
+            exit 1
+          fi
+
+          echo "Pushover accepted the notification (HTTP ${http_status})."
